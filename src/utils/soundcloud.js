@@ -1,33 +1,56 @@
-const DLAPI_BASE_URL = "https://co.wuk.sh/api/json"; // Using a reliable API service
+const DLAPI_BASE_URL = "https://api.sclouddownloader.net/v1";
 
-export const getTrackInfo = async (url) => {
+async function getDownloadUrl(url) {
   try {
-    const response = await fetch(DLAPI_BASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        url: url,
-        aFormat: "mp3",
-      }),
-    });
-
+    // First request to get track ID
+    const response = await fetch(
+      `${DLAPI_BASE_URL}/track?url=${encodeURIComponent(url)}`
+    );
     const data = await response.json();
 
     if (!data.success) {
-      throw new Error(data.text || "Failed to get track information");
+      throw new Error(data.error || "Failed to get track information");
+    }
+
+    // Second request to get download URL
+    const downloadResponse = await fetch(`${DLAPI_BASE_URL}/download`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        track_id: data.track.id,
+      }),
+    });
+
+    const downloadData = await downloadResponse.json();
+
+    if (!downloadData.success) {
+      throw new Error(downloadData.error || "Failed to get download URL");
     }
 
     return {
-      title: data.meta?.title || "Unknown Title",
+      downloadUrl: downloadData.download_url,
+      trackInfo: data.track,
+    };
+  } catch (error) {
+    console.error("Error getting download URL:", error);
+    throw error;
+  }
+}
+
+export const getTrackInfo = async (url) => {
+  try {
+    const { trackInfo } = await getDownloadUrl(url);
+
+    return {
+      title: trackInfo.title || "Unknown Title",
       user: {
-        username: data.meta?.artist || "Unknown Artist",
+        username: trackInfo.user?.username || "Unknown Artist",
       },
-      duration: data.meta?.duration || 0,
-      thumbnail: data.thumb,
-      downloadUrl: data.url,
+      duration: trackInfo.duration || 0,
+      thumbnail: trackInfo.artwork_url,
+      downloadUrl: null, // Will be fetched during download
     };
   } catch (error) {
     console.error("Error getting track info:", error);
@@ -37,13 +60,18 @@ export const getTrackInfo = async (url) => {
 
 export const downloadTrack = async (url) => {
   try {
-    const info = await getTrackInfo(url);
+    const { downloadUrl } = await getDownloadUrl(url);
 
-    if (!info.downloadUrl) {
+    if (!downloadUrl) {
       throw new Error("No download URL available");
     }
 
-    const response = await fetch(info.downloadUrl);
+    const response = await fetch(downloadUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (error) {

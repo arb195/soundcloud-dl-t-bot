@@ -23,19 +23,21 @@ export const handleUrl = async (ctx) => {
     return ctx.reply("Please send a valid Soundcloud URL 🎵");
   }
 
+  let statusMessage;
   try {
-    const statusMessage = await ctx.reply("Processing your request... ⏳");
+    statusMessage = await ctx.reply("Fetching track information... ⏳");
 
     // Get track info first
     const trackInfo = await getTrackInfo(url);
-    await ctx.reply(
+    await statusMessage.edit(
       `Found track: ${trackInfo.title}\n` +
         `Artist: ${trackInfo.user.username}\n` +
-        `Downloading... 📥`
+        `Starting download... 📥`
     );
 
     // Download the track
     const audioBuffer = await downloadTrack(url);
+    await statusMessage.edit("Preparing to send the file... 📦");
 
     // Send the audio file
     await ctx.replyWithAudio({
@@ -51,16 +53,24 @@ export const handleUrl = async (ctx) => {
   } catch (error) {
     console.error("Error:", error);
 
-    let errorMessage = "Sorry, there was an error processing your request. ";
+    let errorMessage = "Sorry, there was an error. ";
 
     if (error.message.includes("Failed to get track information")) {
       errorMessage += "Could not fetch track information. ";
     } else if (error.message.includes("No download URL")) {
       errorMessage += "Could not get download link. ";
+    } else if (error.message.includes("HTTP error")) {
+      errorMessage += "Download server error. ";
     }
 
     errorMessage += "Please try again later. ❌";
 
-    await ctx.reply(errorMessage);
+    if (statusMessage) {
+      await statusMessage.edit(errorMessage).catch(() => {
+        ctx.reply(errorMessage);
+      });
+    } else {
+      await ctx.reply(errorMessage);
+    }
   }
 };
