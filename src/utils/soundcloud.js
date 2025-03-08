@@ -1,56 +1,24 @@
-const DLAPI_BASE_URL = "https://api.sclouddownloader.net/v1";
+import SCDL from "scdl-core";
 
-async function getDownloadUrl(url) {
-  try {
-    // First request to get track ID
-    const response = await fetch(
-      `${DLAPI_BASE_URL}/track?url=${encodeURIComponent(url)}`
-    );
-    const data = await response.json();
+// Initialize with client ID
+const CLIENT_ID = "c2t0HZIZKBSJidX1GdH3UotrUjsj2DYd"; // Public client ID
 
-    if (!data.success) {
-      throw new Error(data.error || "Failed to get track information");
-    }
-
-    // Second request to get download URL
-    const downloadResponse = await fetch(`${DLAPI_BASE_URL}/download`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        track_id: data.track.id,
-      }),
-    });
-
-    const downloadData = await downloadResponse.json();
-
-    if (!downloadData.success) {
-      throw new Error(downloadData.error || "Failed to get download URL");
-    }
-
-    return {
-      downloadUrl: downloadData.download_url,
-      trackInfo: data.track,
-    };
-  } catch (error) {
-    console.error("Error getting download URL:", error);
-    throw error;
-  }
-}
+SCDL.init({
+  clientID: CLIENT_ID,
+});
 
 export const getTrackInfo = async (url) => {
   try {
-    const { trackInfo } = await getDownloadUrl(url);
+    const trackInfo = await SCDL.getInfo(url);
 
     return {
-      title: trackInfo.title || "Unknown Title",
+      title: trackInfo.title,
       user: {
-        username: trackInfo.user?.username || "Unknown Artist",
+        username: trackInfo.user.username,
       },
-      duration: trackInfo.duration || 0,
+      duration: trackInfo.duration,
       thumbnail: trackInfo.artwork_url,
-      downloadUrl: null, // Will be fetched during download
+      downloadUrl: trackInfo.permalink_url,
     };
   } catch (error) {
     console.error("Error getting track info:", error);
@@ -60,12 +28,14 @@ export const getTrackInfo = async (url) => {
 
 export const downloadTrack = async (url) => {
   try {
-    const { downloadUrl } = await getDownloadUrl(url);
+    // Get download URL
+    const downloadUrl = await SCDL.download(url);
 
     if (!downloadUrl) {
       throw new Error("No download URL available");
     }
 
+    // Download the file
     const response = await fetch(downloadUrl);
 
     if (!response.ok) {
