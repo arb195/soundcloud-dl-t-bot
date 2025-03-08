@@ -1,5 +1,3 @@
-import { JSDOM } from "jsdom";
-
 class SoundCloud {
   constructor(clientId) {
     this.clientId = clientId;
@@ -14,8 +12,14 @@ class SoundCloud {
       const response = await fetch(url);
       const html = await response.text();
 
-      // Use regex to find track ID
-      const match = html.match(/soundcloud:\/\/sounds:(\d+)/);
+      // Try different regex patterns to find track ID
+      let match = html.match(/soundcloud:\/\/sounds:(\d+)/);
+      if (!match) {
+        match = html.match(/"track_id":(\d+)/);
+      }
+      if (!match) {
+        match = html.match(/data-trackid="(\d+)"/);
+      }
       return match ? match[1] : null;
     } catch (error) {
       console.error("Error finding track ID:", error);
@@ -27,6 +31,9 @@ class SoundCloud {
     try {
       const url = this.url(`https://api.soundcloud.com/tracks/${trackId}/`);
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       return await response.json();
     } catch (error) {
       console.error("Error getting track info:", error);
