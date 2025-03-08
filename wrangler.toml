@@ -7,13 +7,6 @@ compatibility_date = "2024-01-01"
 [vars]
 TELEGRAM_BOT_TOKEN = ""    # Configure this in Cloudflare Dashboard
 
-# KV namespace configuration
-# Create these in Cloudflare Dashboard: Workers & Pages -> KV
-[[kv_namespaces]]
-binding = "BOT_STORAGE"  # Name used in your code
-id = ""                  # Get this from Cloudflare Dashboard
-preview_id = ""          # Get this from Cloudflare Dashboard
-
 [build]
 command = "npm install"  # or "yarn install" if using yarn
 watch_dir = "src"
