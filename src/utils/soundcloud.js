@@ -3,24 +3,26 @@ class SoundCloud {
     this.clientId = clientId;
   }
 
-  url(endpoint) {
-    return `${endpoint}?client_id=${this.clientId}`;
-  }
-
   async findTrackId(url) {
     try {
+      console.log("Fetching page:", url);
       const response = await fetch(url);
       const html = await response.text();
 
-      // Try different regex patterns to find track ID
-      let match = html.match(/soundcloud:\/\/sounds:(\d+)/);
-      if (!match) {
-        match = html.match(/"track_id":(\d+)/);
+      // Try to find track ID from window.__sc_hydration
+      const hydrationMatch = html.match(/"id":(\d+),"kind":"track"/);
+      if (hydrationMatch) {
+        return hydrationMatch[1];
       }
-      if (!match) {
-        match = html.match(/data-trackid="(\d+)"/);
+
+      // Fallback: try to find from meta tags
+      const metaMatch = html.match(/content="soundcloud:\/\/sounds:(\d+)"/);
+      if (metaMatch) {
+        return metaMatch[1];
       }
-      return match ? match[1] : null;
+
+      console.log("Could not find track ID in HTML");
+      return null;
     } catch (error) {
       console.error("Error finding track ID:", error);
       return null;
@@ -29,43 +31,53 @@ class SoundCloud {
 
   async getTrackInfo(trackId) {
     try {
-      const url = this.url(`https://api.soundcloud.com/tracks/${trackId}/`);
-      const response = await fetch(url);
+      console.log("Getting track info for ID:", trackId);
+      const response = await fetch(
+        `https://api-v2.soundcloud.com/tracks/${trackId}?client_id=${this.clientId}`
+      );
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`API response not ok: ${response.status}`);
       }
-      return await response.json();
+
+      const data = await response.json();
+      console.log("Track info received:", data.title);
+      return data;
     } catch (error) {
       console.error("Error getting track info:", error);
       throw new Error("Failed to get track information");
     }
   }
 
-  async getDownloadUrl(trackId) {
+  async getMediaUrl(trackId) {
     try {
-      const url = this.url(
-        `https://api.soundcloud.com/tracks/${trackId}/download`
-      );
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Track not available for download");
-      }
-      return response.url;
-    } catch (error) {
-      console.error("Error getting download URL:", error);
-      throw new Error("Failed to get download URL");
-    }
-  }
-
-  async getStreamUrl(trackId) {
-    try {
+      console.log("Getting media URL for track:", trackId);
       const info = await this.getTrackInfo(trackId);
-      if (info.streamable) {
-        return this.url(info.stream_url);
+
+      if (info.downloadable && info.download_url) {
+        const url = `${info.download_url}?client_id=${this.clientId}`;
+        console.log("Found download URL");
+        return url;
       }
-      throw new Error("Track is not streamable");
+
+      if (info.media && info.media.transcodings) {
+        const progressive = info.media.transcodings.find(
+          (t) => t.format.protocol === "progressive"
+        );
+
+        if (progressive) {
+          const response = await fetch(
+            `${progressive.url}?client_id=${this.clientId}`
+          );
+          const data = await response.json();
+          console.log("Found streaming URL");
+          return data.url;
+        }
+      }
+
+      throw new Error("No suitable media URL found");
     } catch (error) {
-      console.error("Error getting stream URL:", error);
+      console.error("Error getting media URL:", error);
       throw error;
     }
   }
@@ -76,6 +88,7 @@ const CLIENT_ID = "a3e059563d7fd3372b49b37f00a00bcf";
 const sc = new SoundCloud(CLIENT_ID);
 
 export const getTrackInfo = async (url) => {
+  console.log("Getting track info for URL:", url);
   try {
     const trackId = await sc.findTrackId(url);
     if (!trackId) {
@@ -92,42 +105,36 @@ export const getTrackInfo = async (url) => {
       duration: trackInfo.duration,
       thumbnail: trackInfo.artwork_url,
       downloadable: trackInfo.downloadable,
-      streamable: trackInfo.streamable,
+      streamable: true,
       trackId: trackId,
     };
   } catch (error) {
-    console.error("Error getting track info:", error);
+    console.error("Error in getTrackInfo:", error);
     throw new Error("Failed to get track information");
   }
 };
 
 export const downloadTrack = async (url) => {
+  console.log("Starting download for URL:", url);
   try {
     const trackId = await sc.findTrackId(url);
     if (!trackId) {
       throw new Error("Could not find track ID");
     }
 
-    const trackInfo = await sc.getTrackInfo(trackId);
-    let downloadUrl;
+    const mediaUrl = await sc.getMediaUrl(trackId);
+    console.log("Got media URL, downloading...");
 
-    if (trackInfo.downloadable) {
-      downloadUrl = await sc.getDownloadUrl(trackId);
-    } else if (trackInfo.streamable) {
-      downloadUrl = await sc.getStreamUrl(trackId);
-    } else {
-      throw new Error("Track is not available for download or streaming");
-    }
-
-    const response = await fetch(downloadUrl);
+    const response = await fetch(mediaUrl);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    console.log("Download completed, size:", arrayBuffer.byteLength);
     return Buffer.from(arrayBuffer);
   } catch (error) {
-    console.error("Error downloading track:", error);
+    console.error("Error in downloadTrack:", error);
     throw new Error("Failed to download track");
   }
 };
