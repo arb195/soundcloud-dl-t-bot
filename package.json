@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "telegraf": "^4.15.3",
-    "soundcloud-downloader": "^1.0.0",
+    "soundcloud-scraper": "^5.0.3",
     "dotenv": "^16.3.1",
     "node-fetch": "^3.3.2"
   },

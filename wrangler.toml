@@ -2,30 +2,35 @@ name = "soundcloud-downloader-bot"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# Environment variables will be configured in the Cloudflare Dashboard
+# Do not put actual tokens here
 [vars]
-# These values will be replaced with your actual credentials in the Cloudflare Dashboard
-BOT_TOKEN = ""
-SOUNDCLOUD_CLIENT_ID = ""
+TELEGRAM_BOT_TOKEN = ""    # Configure this in Cloudflare Dashboard
 
+# KV namespace configuration
+# Create these in Cloudflare Dashboard: Workers & Pages -> KV
 [[kv_namespaces]]
-binding = "BOT_STORAGE"
-id = ""
-preview_id = ""
+binding = "BOT_STORAGE"  # Name used in your code
+id = ""                  # Get this from Cloudflare Dashboard
+preview_id = ""          # Get this from Cloudflare Dashboard
 
 [build]
-command = "npm install"
+command = "npm install"  # or "yarn install" if using yarn
 watch_dir = "src"
 
 [triggers]
 crons = []
 
+# Production environment settings
 [env.production]
 workers_dev = true
 route = ""
 
+# Staging environment settings
 [env.staging]
 workers_dev = true
 
+# Local development settings
 [miniflare]
 kv_persist = true
-env_path = ".env" 
+env_path = ".env"        # Use .env file for local development 
