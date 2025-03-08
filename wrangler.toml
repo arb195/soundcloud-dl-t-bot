@@ -28,3 +28,6 @@ workers_dev = true
 [miniflare]
 kv_persist = true
 env_path = ".env"        # Use .env file for local development 
+
+[observability.logs]
+enabled = true
