@@ -1,24 +1,25 @@
-import SCDL from "scdl-core";
-
-// Initialize with client ID
-const CLIENT_ID = "c2t0HZIZKBSJidX1GdH3UotrUjsj2DYd"; // Public client ID
-
-SCDL.init({
-  clientID: CLIENT_ID,
-});
+const API_BASE_URL = "https://soundcloud-downloader.com/api";
 
 export const getTrackInfo = async (url) => {
   try {
-    const trackInfo = await SCDL.getInfo(url);
+    // First get track info
+    const infoResponse = await fetch(
+      `${API_BASE_URL}/track?url=${encodeURIComponent(url)}`
+    );
+    const trackData = await infoResponse.json();
+
+    if (!trackData.success) {
+      throw new Error(trackData.error || "Failed to get track information");
+    }
 
     return {
-      title: trackInfo.title,
+      title: trackData.title,
       user: {
-        username: trackInfo.user.username,
+        username: trackData.author,
       },
-      duration: trackInfo.duration,
-      thumbnail: trackInfo.artwork_url,
-      downloadUrl: trackInfo.permalink_url,
+      duration: trackData.duration * 1000, // Convert to milliseconds
+      thumbnail: trackData.thumbnail,
+      downloadUrl: trackData.download_url,
     };
   } catch (error) {
     console.error("Error getting track info:", error);
@@ -28,15 +29,14 @@ export const getTrackInfo = async (url) => {
 
 export const downloadTrack = async (url) => {
   try {
-    // Get download URL
-    const downloadUrl = await SCDL.download(url);
+    const info = await getTrackInfo(url);
 
-    if (!downloadUrl) {
+    if (!info.downloadUrl) {
       throw new Error("No download URL available");
     }
 
     // Download the file
-    const response = await fetch(downloadUrl);
+    const response = await fetch(info.downloadUrl);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
