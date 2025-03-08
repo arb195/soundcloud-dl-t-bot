@@ -2,11 +2,10 @@
   "name": "soundcloud-downloader-bot",
   "version": "1.0.0",
   "description": "Telegram bot for downloading Soundcloud tracks",
-  "main": "src/index.js",
+  "main": "src/worker.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "telegraf": "^4.15.3",
