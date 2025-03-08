@@ -7,6 +7,12 @@ import {
 
 export default {
   async fetch(request, env, ctx) {
+    // Log environment variables (be careful not to log the actual token in production)
+    console.log("Environment check:", {
+      hasToken: !!env.TELEGRAM_BOT_TOKEN,
+      tokenLength: env.TELEGRAM_BOT_TOKEN?.length,
+    });
+
     const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
 
     // Command handlers
